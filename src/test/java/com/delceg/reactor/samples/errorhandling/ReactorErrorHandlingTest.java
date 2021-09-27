@@ -1,10 +1,16 @@
 package com.delceg.reactor.samples.errorhandling;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 // inspired by https://www.youtube.com/watch?v=Lu5p0vndcYE
 public class ReactorErrorHandlingTest {
@@ -135,5 +141,87 @@ public class ReactorErrorHandlingTest {
             .expectNext("A", "B")
             .thenCancel()
             .verify();
+    }
+
+    /**
+     * note that in case of onErrorResume the flux is substituted when the first error occurs.
+     * Reactor does not move onto processing further items.
+     */
+    @Test
+    public void testThatOnErrorResumeInterruptsFlux() {
+        var flux = Flux.just("A", "B", "C")
+            .concatWith(Flux.error(new RuntimeException("Business Exception")))
+            .concatWith(Flux.just("D"))
+            .onErrorResume(throwable -> {
+                System.out.println("on error resume");
+                return Flux.just("X", "Y", "Z");
+            });
+
+        StepVerifier.create(flux).expectNext("A")
+            .expectNext("B")
+            .expectNext("C")
+            .expectNext("X")
+            .expectNext("Y")
+            .expectNext("Z")
+            .verifyComplete();
+//            .subscribe((type) -> System.out.println("consumer of type: " + type.toString()), (throwable) -> System.out.println("got throwable " + throwable.getClass().getName()));
+    }
+
+    @Test
+    public void testInterruptedFluxTransformation() {
+        var flux = Flux.just("A", "B", "C")
+            .concatWith(Flux.error(new RuntimeException("foo exception")))
+            .concatWith(Flux.just("D"))
+            .onErrorResume(throwable -> Flux.error(new RuntimeException("wrapped", throwable)));
+
+        var fluxLowerCase = flux.map(String::toLowerCase);
+
+        StepVerifier.create(fluxLowerCase.log())
+            .expectNext("a")
+            .expectNext("b")
+            .expectNext("c")
+            .expectError()
+            .verify();
+    }
+
+    @Test
+    public void testThatOnSuccessIsInvokedOnSuccess() {
+        final AtomicInteger callCount = new AtomicInteger(0);
+        final Mono<String> mono = Mono.just("1").doOnSuccess(s ->
+            callCount.incrementAndGet()
+        );
+
+        StepVerifier.create(mono).expectNext("1").verifyComplete();
+
+        Assertions.assertEquals(1, callCount.get());
+    }
+
+    @Test
+    public void testThatEmptyMonoDoesTriggersDoOnSuccess() {
+        final AtomicInteger callCount = new AtomicInteger(0);
+        final Mono<String> mono = Mono.<String>empty().doOnSuccess(s ->
+            callCount.incrementAndGet()
+        );
+
+        StepVerifier.create(mono).expectNextCount(0).verifyComplete();
+
+        Assertions.assertEquals(1, callCount.get());
+    }
+
+    /** a mono that unexpectedly throws an exception is still caught by Mono framework. */
+    @Test
+    public void testThatThrownExceptionGetsTransferredIntoMonoError() throws Exception {
+        final Mono<String> mono = getThrowingMono();
+        StepVerifier.create(mono).expectError().verify();
+    }
+
+    private Mono<String> getThrowingMono() {
+        return Mono.just("a").flatMap(s -> {
+            throw new IllegalArgumentException("terrible burn");
+        });
+    }
+
+    private Mono<String> getMono() {
+        return Mono.empty();
     }
 }
