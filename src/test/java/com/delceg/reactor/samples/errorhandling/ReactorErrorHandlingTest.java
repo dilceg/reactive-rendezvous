@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 // inspired by https://www.youtube.com/watch?v=Lu5p0vndcYE
@@ -221,7 +222,32 @@ public class ReactorErrorHandlingTest {
         });
     }
 
-    private Mono<String> getMono() {
-        return Mono.empty();
+    @Test
+    public void testOnErrorResumeWithPermissibleException() {
+        // given: - an error processing scheme where some of the exceptions are recoverable:
+        Function<Mono<String>, Mono<String>> errorProcessingFunction = (errorIn) ->
+            errorIn.onErrorResume(
+                throwable -> {
+                    if (throwable.getClass().equals(IllegalArgumentException.class)) {
+                        // LOG error/warning message here (if this was real code)
+                        return Mono.empty();
+                    } else {
+                        return Mono.error(throwable);
+                    }
+                }
+            );
+
+        // when: - recoverable error is received
+        final Mono<String> monoWithRecoverableError = errorProcessingFunction.apply(Mono.error(new IllegalArgumentException("recoverable error")));
+        // then: - we should see no error thrown
+        StepVerifier.create(monoWithRecoverableError)
+            .expectNextCount(0).verifyComplete();
+
+        // when: - un-recoverable error is received
+        final Mono<String> monoWithUnrecoverableError = errorProcessingFunction.apply(Mono.error(new RuntimeException("terrible burn")));
+        // then: - we should see the error being thrown
+        StepVerifier.create(monoWithUnrecoverableError)
+            .expectErrorSatisfies(throwable -> Assertions.assertEquals("terrible burn", throwable.getMessage()))
+            .verify();
     }
 }
