@@ -7,11 +7,8 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 // inspired by https://www.youtube.com/watch?v=Lu5p0vndcYE
 public class ReactorErrorHandlingTest {
@@ -249,5 +246,66 @@ public class ReactorErrorHandlingTest {
         StepVerifier.create(monoWithUnrecoverableError)
             .expectErrorSatisfies(throwable -> Assertions.assertEquals("terrible burn", throwable.getMessage()))
             .verify();
+    }
+
+    @Test
+    public void testFilterWhen() {
+        final Mono<String> mono = Mono.just("1");
+        Mono<String> filteredMono = mono.filterWhen(m -> (m.equals("1")) ? Mono.just(true) : Mono.just(false));
+
+        StepVerifier.create(filteredMono)
+            .expectNext("1").verifyComplete();
+    }
+
+    @Test
+    public void testNegativeFilterWhen() {
+        final Mono<String> mono = Mono.just("2");
+        Mono<String> filteredMono = mono.filterWhen(m -> (m.equals("1")) ? Mono.just(true) : Mono.just(false));
+
+        StepVerifier.create(filteredMono)
+            .expectNextCount(0).verifyComplete();
+    }
+
+    // CAVEAT:
+    // notice that map() operation is skipped in this case, which may mean that you are not getting some of the
+    // effects you would hope for.
+    @Test
+    public void testMonoVoidUse_map_not_executed() {
+        // given:
+        final AtomicInteger counter = new AtomicInteger(0);
+        final Runnable runnable = () -> counter.incrementAndGet();
+        final Mono<Integer> voidMono = Mono.fromRunnable(runnable)
+            .map(
+                void_value -> counter.incrementAndGet() // note that this statement won't be exercised!
+            );
+
+        // expect:
+        StepVerifier.create(voidMono)
+            .expectNext()
+            .verifyComplete();
+
+        // and: -- note that map() operation was skipped because of Mono.fromRunnable() returning Mono<Void>.
+        Assertions.assertEquals(1, counter.get());
+    }
+
+    @Test
+    public void testMonoVoidUse_map_executed_successfully() {
+        // given:
+        final AtomicInteger counter = new AtomicInteger(0);
+        final Runnable runnable = () -> counter.incrementAndGet();
+        final Mono<Integer> voidMono = Mono.fromRunnable(runnable)
+            .thenReturn(true) // this makes the map() statement below to execute!
+            .map(
+                void_value -> counter.incrementAndGet()
+            );
+
+        // expect:
+        StepVerifier.create(voidMono)
+            .expectNext()
+            .expectNext(2)
+            .verifyComplete();
+
+        // and: -- note that map() operation was executed (compare to previous test, `testMonoVoidUse_map_not_executed()`)
+        Assertions.assertEquals(2, counter.get());
     }
 }
