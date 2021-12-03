@@ -308,4 +308,51 @@ public class ReactorErrorHandlingTest {
         // and: -- note that map() operation was executed (compare to previous test, `testMonoVoidUse_map_not_executed()`)
         Assertions.assertEquals(2, counter.get());
     }
+    
+    /**
+     * the next two tests highlight that we have evaluation of function passed in for switchIfEmpty, even if that
+     * condition is not triggered.
+     *
+     * In the following test we ensure that the Mono is now empty, but switchIfEmpty is still executed.
+     *
+     * Details explained here: https://stackoverflow.com/questions/54373920/mono-switchifempty-is-always-called
+     */
+    @Test
+    void testBehaviorOfSwitchIfEmptyEval() {
+        // given:
+        AtomicInteger counter = new AtomicInteger(0);
+        // when:
+        Mono<String> testMono = Mono.just("1")
+            .switchIfEmpty(doIfEmpty(counter));
+
+        // then:
+        StepVerifier.create(testMono).expectNextCount(1).verifyComplete();
+        // and: despite of not having an empty item, it is still invoked. See next test how to resolve this.
+        Assertions.assertEquals(1, counter.get());
+    }
+
+    private Mono<String> doIfEmpty(AtomicInteger integer) {
+        integer.incrementAndGet();
+        return Mono.just("x");
+    }
+
+    /**
+     * See {@link #testBehaviorOfSwitchIfEmptyEval} for details.
+     *
+     * In this test thanks to using Mono.defer in switchIfEmpty that clause is never executed (as expected) for empty
+     * mono.
+     */
+    @Test
+    void testBehaviorOfSwitchIfEmptyEval_lazy_exec() {
+        // given:
+        AtomicInteger counter = new AtomicInteger(0);
+        // when:
+        Mono<String> testMono = Mono.just("1")
+            .switchIfEmpty(Mono.defer(() -> doIfEmpty(counter)));
+
+        // then:
+        StepVerifier.create(testMono).expectNextCount(1).verifyComplete();
+        // and: thanks to lazy initialization this code is not invoked
+        Assertions.assertEquals(0, counter.get());
+    }
 }
