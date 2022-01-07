@@ -355,4 +355,81 @@ public class ReactorErrorHandlingTest {
         // and: thanks to lazy initialization this code is not invoked
         Assertions.assertEquals(0, counter.get());
     }
+    
+    /**
+     * This demonstrates a suprising side effect of chaining multiple fluxes with flatMap().
+     *
+     * Even though only the first flux will fail, we will see .onErrorMap() invoked for
+     * each flux in the chain.
+     */
+    @Test
+    public void testThatMappingGetsExecutedOnError() {
+        // given: - first flux that will fail
+        Flux<String> firstFailingFlux = Flux.error(new IllegalArgumentException("terrible burn"));
+
+        // and: - indicator latches of how far the code execution gets:
+        AtomicBoolean visitedFirstFlux_OnErrorMap = new AtomicBoolean(false);
+        AtomicBoolean visitedSecondFlux_OnErrorMap = new AtomicBoolean(false);
+        AtomicBoolean visitedSecondFlux = new AtomicBoolean(false);
+
+        // and: - first flux
+        final Flux<String> firstFluxResult = firstFailingFlux
+            .onErrorMap(throwable -> {
+                visitedFirstFlux_OnErrorMap.set(true);
+                return new RuntimeException("wrapped", throwable);
+            });
+
+        // and: - second flux chained after first flux
+        final Flux<String> secondFlux = firstFluxResult.flatMap(
+            personList -> {
+                visitedSecondFlux.set(true);
+                return Flux.just("foobar");
+            }).onErrorMap(throwable -> {
+                visitedSecondFlux_OnErrorMap.set(true);
+                return new RuntimeException("doubleWrapped", throwable);
+        });
+
+        // expect:
+        StepVerifier.create(secondFlux).expectError().verify();
+        // and: - counterintuitively *both* onErrorMap() gets invoked in 1st and 2nd flux.
+        Assertions.assertTrue(visitedFirstFlux_OnErrorMap.get());
+        Assertions.assertTrue(visitedSecondFlux_OnErrorMap.get());
+        // and: - it is expected that second flux won't get executed because the first flux failed.
+        Assertions.assertEquals(false, visitedSecondFlux.get());
+    }
+
+    /**
+     * this test demonstrates how to only invoke one of the doOnError()-s
+     * when chaining 2 different fluxes (which can run independently) with
+     * Mono.zip.
+     */
+    @Test
+    public void testThatOnlyTheFirstDoOnErrorGetsTriggered() {
+        // given: - set of boolean latches to verify which part of code executed
+        AtomicBoolean visited_second_OnNext = new AtomicBoolean(false);
+        AtomicBoolean visited_second_OnError = new AtomicBoolean(false);
+        AtomicBoolean visited_first_OnError = new AtomicBoolean(false);
+
+        // and: first stream
+        Mono<String> errorSupplier = Mono.error(new IllegalArgumentException("terrible burn"));
+
+        // and: second stream
+        Mono<String> normal = Mono.just("foo")
+            .doOnNext(it -> visited_second_OnNext.set(true))
+            .doOnError(it -> visited_second_OnError.set(true));
+
+        // and: combination of the two streams with zip()
+        Mono<Tuple2<String, String>> result = Mono.zip(
+            errorSupplier.doOnError(e -> visited_first_OnError.set(true)),
+            normal
+        );
+
+        // expect:
+        StepVerifier.create(result).expectError().verify();
+        // and: Note that neither of latches in the 2nd flux was triggered:
+        Assertions.assertFalse(visited_second_OnNext.get());
+        Assertions.assertFalse(visited_second_OnError.get());
+        // and: as expected the error latch was triggered on the first flux:
+        Assertions.assertTrue(visited_first_OnError.get());
+    }
 }
