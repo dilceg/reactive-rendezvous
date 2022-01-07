@@ -402,6 +402,8 @@ public class ReactorErrorHandlingTest {
      * this test demonstrates how to only invoke one of the doOnError()-s
      * when chaining 2 different fluxes (which can run independently) with
      * Mono.zip.
+     *
+     * Details about use of Mono.zip for parallel run of tasks: https://stackoverflow.com/a/48183459 
      */
     @Test
     public void testThatOnlyTheFirstDoOnErrorGetsTriggered() {
