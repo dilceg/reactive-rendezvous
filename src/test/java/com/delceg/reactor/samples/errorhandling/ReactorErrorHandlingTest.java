@@ -432,4 +432,38 @@ public class ReactorErrorHandlingTest {
         // and: as expected the error latch was triggered on the first flux:
         Assertions.assertTrue(visited_first_OnError.get());
     }
+    
+    /**
+     * this test demonstrates how to only invoke one of the doOnError()-s
+     * when chaining 2 different fluxes (which can run independently) with
+     * then().
+     */
+    @Test
+    public void testThatOnlyTheFirstDoOnErrorGetsTriggeredWhenUsingThen() {
+        // given: - set of boolean latches to verify which part of code executed
+        AtomicBoolean visited_second_OnNext = new AtomicBoolean(false);
+        AtomicBoolean visited_second_OnError = new AtomicBoolean(false);
+        AtomicBoolean visited_first_OnError = new AtomicBoolean(false);
+
+        // and: first stream
+        Mono<String> errorSupplier = Mono.error(new IllegalArgumentException("terrible burn"));
+
+        // and: second stream
+        Mono<String> normal = Mono.just("foo")
+            .doOnNext(it -> visited_second_OnNext.set(true))
+            .doOnError(it -> visited_second_OnError.set(true));
+
+        // and:
+        Mono<String> result = errorSupplier
+            .doOnError(e -> visited_first_OnError.set(true))
+            .then(normal);
+
+        // expect:
+        StepVerifier.create(result).expectError().verify();
+        // and: Note that neither of latches in the 2nd flux was triggered:
+        Assertions.assertFalse(visited_second_OnNext.get());
+        Assertions.assertFalse(visited_second_OnError.get());
+        // and: as expected the error latch was triggered on the first flux:
+        Assertions.assertTrue(visited_first_OnError.get());
+    }
 }
