@@ -11,7 +11,6 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 // inspired by https://www.youtube.com/watch?v=Lu5p0vndcYE
 public class ReactorErrorHandlingTest {
@@ -311,7 +310,7 @@ public class ReactorErrorHandlingTest {
         // and: -- note that map() operation was executed (compare to previous test, `testMonoVoidUse_map_not_executed()`)
         Assertions.assertEquals(2, counter.get());
     }
-    
+
     /**
      * the next two tests highlight that we have evaluation of function passed in for switchIfEmpty, even if that
      * condition is not triggered.
@@ -358,7 +357,7 @@ public class ReactorErrorHandlingTest {
         // and: thanks to lazy initialization this code is not invoked
         Assertions.assertEquals(0, counter.get());
     }
-    
+
     /**
      * This demonstrates a suprising side effect of chaining multiple fluxes with flatMap().
      *
@@ -388,8 +387,8 @@ public class ReactorErrorHandlingTest {
                 visitedSecondFlux.set(true);
                 return Flux.just("foobar");
             }).onErrorMap(throwable -> {
-                visitedSecondFlux_OnErrorMap.set(true);
-                return new RuntimeException("doubleWrapped", throwable);
+            visitedSecondFlux_OnErrorMap.set(true);
+            return new RuntimeException("doubleWrapped", throwable);
         });
 
         // expect:
@@ -406,7 +405,7 @@ public class ReactorErrorHandlingTest {
      * when chaining 2 different fluxes (which can run independently) with
      * Mono.zip.
      *
-     * Details about use of Mono.zip for parallel run of tasks: https://stackoverflow.com/a/48183459 
+     * Details about use of Mono.zip for parallel run of tasks: https://stackoverflow.com/a/48183459
      */
     @Test
     public void testThatOnlyTheFirstDoOnErrorGetsTriggered() {
@@ -437,7 +436,7 @@ public class ReactorErrorHandlingTest {
         // and: as expected the error latch was triggered on the first flux:
         Assertions.assertTrue(visited_first_OnError.get());
     }
-    
+
     /**
      * this test demonstrates how to only invoke one of the doOnError()-s
      * when chaining 2 different fluxes (which can run independently) with
@@ -471,14 +470,14 @@ public class ReactorErrorHandlingTest {
         // and: as expected the error latch was triggered on the first flux:
         Assertions.assertTrue(visited_first_OnError.get());
     }
-    
-    /** 
-      * this test demonstrates what it takes to correctly execute
-      * .map() call after a Mono<Void> executed successfully.
-      * 
-      * If no .thenReturn(true) is used, the .map() function has no item
-      * to map, you cannot map "void".
-      */
+
+    /**
+     * this test demonstrates what it takes to correctly execute
+     * .map() call after a Mono<Void> executed successfully.
+     *
+     * If no .thenReturn(true) is used, the .map() function has no item
+     * to map, you cannot map "void".
+     */
     @Test
     public void testMapIsExecutedAfterMonoVoid() {
         // given: - fake Void Mono that simulates success of method returning Mono<Void>
@@ -487,7 +486,7 @@ public class ReactorErrorHandlingTest {
         Mono<Boolean> monoFake = voidFake.thenReturn(true);
         // and: - counter to verify that map method was invoked
         AtomicInteger i = new AtomicInteger(0);
-       
+
         // and: - the mapping Mono call, that we asserting to execute
         Mono<Boolean> result = monoFake.map(foo -> {
             i.incrementAndGet();
