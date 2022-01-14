@@ -472,21 +472,6 @@ public class ReactorErrorHandlingTest {
         Assertions.assertTrue(visited_first_OnError.get());
     }
     
-     @Test
-    public void testaaa() {
-        Mono<Boolean> monoFake = Mono.empty().thenReturn(true);
-        AtomicInteger i = new AtomicInteger(0);
-        Mono<Boolean> result = monoFake.map(foo -> {
-            i.incrementAndGet();
-            return foo;
-        });
-
-        StepVerifier.create(result).expectNextCount(1).verifyComplete();
-        Assertions.assertEquals(1, i.get());
-    }
-    
-    
-
     /** 
       * this test demonstrates what it takes to correctly execute
       * .map() call after a Mono<Void> executed successfully.
