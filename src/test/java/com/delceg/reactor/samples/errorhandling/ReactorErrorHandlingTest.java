@@ -5,10 +5,13 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import reactor.util.function.Tuple2;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 // inspired by https://www.youtube.com/watch?v=Lu5p0vndcYE
 public class ReactorErrorHandlingTest {
@@ -467,5 +470,48 @@ public class ReactorErrorHandlingTest {
         Assertions.assertFalse(visited_second_OnError.get());
         // and: as expected the error latch was triggered on the first flux:
         Assertions.assertTrue(visited_first_OnError.get());
+    }
+    
+     @Test
+    public void testaaa() {
+        Mono<Boolean> monoFake = Mono.empty().thenReturn(true);
+        AtomicInteger i = new AtomicInteger(0);
+        Mono<Boolean> result = monoFake.map(foo -> {
+            i.incrementAndGet();
+            return foo;
+        });
+
+        StepVerifier.create(result).expectNextCount(1).verifyComplete();
+        Assertions.assertEquals(1, i.get());
+    }
+    
+    
+
+    /** 
+      * this test demonstrates what it takes to correctly execute
+      * .map() call after a Mono<Void> executed successfully.
+      * 
+      * If no .thenReturn(true) is used, the .map() function has no item
+      * to map, you cannot map "void".
+      */
+    @Test
+    public void testMapIsExecutedAfterMonoVoid() {
+        // given: - fake Void Mono that simulates success of method returning Mono<Void>
+        Mono<Void> voidFake = Mono.empty();
+        // and: - adding a thenReturn to make the mapping call happen
+        Mono<Boolean> monoFake = voidFake.thenReturn(true);
+        // and: - counter to verify that map method was invoked
+        AtomicInteger i = new AtomicInteger(0);
+       
+        // and: - the mapping Mono call, that we asserting to execute
+        Mono<Boolean> result = monoFake.map(foo -> {
+            i.incrementAndGet();
+            return foo;
+        });
+
+        // expect: - one item is processed
+        StepVerifier.create(result).expectNextCount(1).verifyComplete();
+        // and: we visited the .map() method
+        Assertions.assertEquals(1, i.get());
     }
 }
