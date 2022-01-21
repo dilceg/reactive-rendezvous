@@ -498,4 +498,29 @@ public class ReactorErrorHandlingTest {
         // and: we visited the .map() method
         Assertions.assertEquals(1, i.get());
     }
+    
+    /**
+     * Test that verifies that after filter returns empty, the following map operation
+     * is not executed.
+     *
+     * I.e. in this case there is no need to do .switchIfEmpty() as the framework already takes care of it.
+     */
+    @Test
+    public void testThat_map_is_not_run_after_empty_mono() {
+        // given: - a mono with a single empty string
+        Mono<String> mono = Mono.just("");
+        // and - counter for verification purposes
+        AtomicInteger counter = new AtomicInteger(0);
+
+        // and - a mono where we filter out all empty strings
+        Mono<String> finalMono = mono.filter(s -> !s.isEmpty()).map(it -> {
+            counter.incrementAndGet();
+            return it;
+        });
+
+        // expect: - empty results
+        StepVerifier.create(finalMono).expectNextCount(0).verifyComplete();
+        // and: - no call of map() function happens.
+        Assertions.assertEquals(0, counter.get());
+    }
 }
