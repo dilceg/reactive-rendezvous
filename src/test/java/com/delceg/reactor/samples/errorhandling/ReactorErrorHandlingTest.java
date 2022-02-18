@@ -1,5 +1,6 @@
 package com.delceg.reactor.samples.errorhandling;
 
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -522,5 +523,42 @@ public class ReactorErrorHandlingTest {
         StepVerifier.create(finalMono).expectNextCount(0).verifyComplete();
         // and: - no call of map() function happens.
         Assertions.assertEquals(0, counter.get());
+    }
+    
+    /**
+     * test that we have the 2-tier recovery, where the mono 
+     * that is in .onErrorResume fails too, but the ultimate "resumed2"
+     * replacement value still gets propagated.
+     */
+    @Test
+    public void testRecoverFromError_of_the_secondary_call() {
+        // given: - visit markers
+        AtomicBoolean firstMarker = new AtomicBoolean(false);
+        AtomicBoolean secondMarker = new AtomicBoolean(false);
+        AtomicBoolean thirdMarker = new AtomicBoolean(false);
+        // and two monos that are chained:
+        Mono<String> monoThatFails = Mono.error(new IllegalArgumentException("terrible burn"));
+        Mono<String> monoThatFailsToo = Mono.error(new IllegalArgumentException("second most terrible burn"));
+
+        // when:
+        Mono<String> result = monoThatFails.flatMap(s -> {
+            firstMarker.set(true);
+            return Mono.just(s);
+        }).onErrorResume(throwable -> {
+            secondMarker.set(true);
+            return monoThatFailsToo.flatMap(s -> {
+                thirdMarker.set(true);
+                return Mono.just(s);
+            }).onErrorResume(throwable2 -> Mono.just("resumed2"));
+        });
+
+        // then: - assert correct recovery
+        StepVerifier.create(result)
+            .expectNextMatches(s ->"resumed2".equals(s)) // this is important as it verifies that we've gone through recovery of 2nd failure.
+            .verifyComplete();
+        // and: - we've gone through expected markers
+        Assertions.assertFalse(firstMarker.get());
+        Assertions.assertTrue(secondMarker.get());
+        Assertions.assertFalse(thirdMarker.get());
     }
 }
