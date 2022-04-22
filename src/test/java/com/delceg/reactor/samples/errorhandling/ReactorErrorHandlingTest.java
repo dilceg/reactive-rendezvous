@@ -1,6 +1,5 @@
 package com.delceg.reactor.samples.errorhandling;
 
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -560,5 +559,36 @@ public class ReactorErrorHandlingTest {
         Assertions.assertFalse(firstMarker.get());
         Assertions.assertTrue(secondMarker.get());
         Assertions.assertFalse(thirdMarker.get());
+    }
+    
+    /** tests what happens with then() chained after a non-empty result is emitted. */
+    @Test
+    public void testThenPositive() {
+        Mono<String> thenClause = Mono.just("MonoFinal");
+        Flux<String> successfulFlux = Flux.just("a", "b", "c");
+        Mono<String> finalResult = successfulFlux.then(thenClause);
+
+        StepVerifier.create(finalResult).expectNext("MonoFinal");
+    }
+
+    /** tests what happens with then() chained after partial failure in a flux */
+    @Test
+    public void testThenFailure() {
+        Mono<String> thenClause = Mono.just("MonoFinal");
+        Flux<String> successfulFlux = Flux.just("a", "b", "c")
+            .concatWith(Flux.error(new IllegalArgumentException("terrible burn")));
+        Mono<String> finalResult = successfulFlux.then(thenClause);
+
+        StepVerifier.create(finalResult).expectErrorSatisfies(throwable -> throwable.getMessage().equals("terrible burn"));
+    }
+
+    /** test what happens with then() when it is chained after empty flux */
+    @Test
+    public void testThenEmpty() {
+        Mono<String> thenClause = Mono.just("MonoFinal");
+        Flux<String> emptyFlux = Flux.empty();
+        Mono<String> finalResult = emptyFlux.then(thenClause);
+
+        StepVerifier.create(finalResult).expectNextCount(0);
     }
 }
