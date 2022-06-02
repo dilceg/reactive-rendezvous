@@ -591,4 +591,21 @@ public class ReactorErrorHandlingTest {
 
         StepVerifier.create(finalResult).expectNextCount(0);
     }
+    
+    /** 
+      * Initialization with empty flux, which is then concated by non-empty flux.
+      * This simplifies code logic, as opposed to using null and null checks.
+      */
+    @Test
+    public void concatWithEmpty() {
+        Flux<String> megaFlux = Flux.empty();
+        for (int i=1; i<4; i++) {
+            megaFlux = Flux.concat(megaFlux, Flux.just(Integer.toString(i)));
+        }
+        StepVerifier.create(megaFlux)
+            .expectNext("1")
+            .expectNext("2")
+            .expectNext("3")
+            .verifyComplete();
+    }
 }
