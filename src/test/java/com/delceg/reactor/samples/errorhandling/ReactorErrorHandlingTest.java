@@ -608,4 +608,36 @@ public class ReactorErrorHandlingTest {
             .expectNext("3")
             .verifyComplete();
     }
+    
+    /**
+     * test that switchIfEmpty kicks in for empty filter
+     * See also {@link #testFilterWithMatchedFilter()}
+     *
+     * This is a common alternate for if-then-else statement that is so frequent in procedural programming.
+     */
+    @Test
+    public void testFilterWithSwitchIfEmpty() {
+        Mono<String> raw = Mono.just("");
+        Mono<String> processed = raw.filter(s -> !s.isEmpty())
+            .switchIfEmpty(Mono.just("alternate when empty"));
+
+        StepVerifier.create(processed)
+            .expectNext("alternate when empty")
+            .verifyComplete();
+    }
+
+    /**
+     * test that for items that match filter, those are returned
+     * See also {@link #testFilterWithSwitchIfEmpty()}.
+     */
+    @Test
+    public void testFilterWithMatchedFilter() {
+        Mono<String> raw = Mono.just("MATCH");
+        Mono<String> processed = raw.filter(s -> "MATCH".equals(s))
+            .switchIfEmpty(Mono.just("alternate when empty"));
+
+        StepVerifier.create(processed)
+            .expectNext("MATCH")
+            .verifyComplete();
+    }
 }
