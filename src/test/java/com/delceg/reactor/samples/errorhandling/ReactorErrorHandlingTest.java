@@ -609,7 +609,7 @@ public class ReactorErrorHandlingTest {
             .verifyComplete();
     }
     
-    /**
+        /**
      * test that switchIfEmpty kicks in for empty filter
      * See also {@link #testFilterWithMatchedFilter()}
      *
@@ -619,6 +619,7 @@ public class ReactorErrorHandlingTest {
     public void testFilterWithSwitchIfEmpty() {
         Mono<String> raw = Mono.just("");
         Mono<String> processed = raw.filter(s -> !s.isEmpty())
+            .flatMap(s -> Mono.just(s.toLowerCase())) // some complicated processing (dummy here)
             .switchIfEmpty(Mono.just("alternate when empty"));
 
         StepVerifier.create(processed)
@@ -634,10 +635,11 @@ public class ReactorErrorHandlingTest {
     public void testFilterWithMatchedFilter() {
         Mono<String> raw = Mono.just("MATCH");
         Mono<String> processed = raw.filter(s -> "MATCH".equals(s))
+            .flatMap(s -> Mono.just(s.toLowerCase())) // some complicated processing (dummy here)
             .switchIfEmpty(Mono.just("alternate when empty"));
 
         StepVerifier.create(processed)
-            .expectNext("MATCH")
+            .expectNext("match")
             .verifyComplete();
     }
 }
