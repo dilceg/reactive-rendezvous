@@ -290,27 +290,6 @@ public class ReactorErrorHandlingTest {
         Assertions.assertEquals(1, counter.get());
     }
 
-    @Test
-    public void testMonoVoidUse_map_executed_successfully() {
-        // given:
-        final AtomicInteger counter = new AtomicInteger(0);
-        final Runnable runnable = () -> counter.incrementAndGet();
-        final Mono<Integer> voidMono = Mono.fromRunnable(runnable)
-            .thenReturn(true) // this makes the map() statement below to execute!
-            .map(
-                void_value -> counter.incrementAndGet()
-            );
-
-        // expect:
-        StepVerifier.create(voidMono)
-            .expectNext()
-            .expectNext(2)
-            .verifyComplete();
-
-        // and: -- note that map() operation was executed (compare to previous test, `testMonoVoidUse_map_not_executed()`)
-        Assertions.assertEquals(2, counter.get());
-    }
-
     /**
      * the next two tests highlight that we have evaluation of function passed in for switchIfEmpty, even if that
      * condition is not triggered.
@@ -498,7 +477,7 @@ public class ReactorErrorHandlingTest {
         // and: we visited the .map() method
         Assertions.assertEquals(1, i.get());
     }
-    
+
     /**
      * Test that verifies that after filter returns empty, the following map operation
      * is not executed.
@@ -523,9 +502,9 @@ public class ReactorErrorHandlingTest {
         // and: - no call of map() function happens.
         Assertions.assertEquals(0, counter.get());
     }
-    
+
     /**
-     * test that we have the 2-tier recovery, where the mono 
+     * test that we have the 2-tier recovery, where the mono
      * that is in .onErrorResume fails too, but the ultimate "resumed2"
      * replacement value still gets propagated.
      */
@@ -560,7 +539,7 @@ public class ReactorErrorHandlingTest {
         Assertions.assertTrue(secondMarker.get());
         Assertions.assertFalse(thirdMarker.get());
     }
-    
+
     /** tests what happens with then() chained after a non-empty result is emitted. */
     @Test
     public void testThenPositive() {
@@ -591,11 +570,11 @@ public class ReactorErrorHandlingTest {
 
         StepVerifier.create(finalResult).expectNextCount(0);
     }
-    
-    /** 
-      * Initialization with empty flux, which is then concated by non-empty flux.
-      * This simplifies code logic, as opposed to using null and null checks.
-      */
+
+    /**
+     * Initialization with empty flux, which is then concated by non-empty flux.
+     * This simplifies code logic, as opposed to using null and null checks.
+     */
     @Test
     public void concatWithEmpty() {
         Flux<String> megaFlux = Flux.empty();
@@ -608,8 +587,8 @@ public class ReactorErrorHandlingTest {
             .expectNext("3")
             .verifyComplete();
     }
-    
-        /**
+
+    /**
      * test that switchIfEmpty kicks in for empty filter
      * See also {@link #testFilterWithMatchedFilter()}
      *
@@ -641,5 +620,29 @@ public class ReactorErrorHandlingTest {
         StepVerifier.create(processed)
             .expectNext("match")
             .verifyComplete();
+    }
+
+    /**
+     * Test that what happens with execution flow after thenReturn is used for both success and failure case.
+     */
+    @Test
+    public void testMonoVoidUse_map_executed_successfully() {
+        // given:
+        final AtomicInteger counter = new AtomicInteger(0);
+        final Runnable runnable = () -> counter.incrementAndGet();
+        final Mono<Integer> voidMono = Mono.fromRunnable(runnable)
+            .thenReturn(true) // this makes the map() statement below to execute!
+            .map(
+                void_value -> counter.incrementAndGet()
+            );
+
+        // expect:
+        StepVerifier.create(voidMono)
+            .expectNext()
+            .expectNext(2)
+            .verifyComplete();
+
+        // and: -- note that map() operation was executed (compare to previous test, `testMonoVoidUse_map_not_executed()`)
+        Assertions.assertEquals(2, counter.get());
     }
 }
